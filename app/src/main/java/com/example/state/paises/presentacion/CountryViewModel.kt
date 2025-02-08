@@ -24,13 +24,25 @@ class CountryViewModel : ViewModel() {
     private val _showModal = MutableStateFlow(false)
     val showModal: StateFlow<Boolean> = _showModal.asStateFlow()
 
-    fun loadCountries() {
+    private val _result = MutableStateFlow<Result<List<Country>>?>(null)
+    val result: StateFlow<Result<List<Country>>?> = _result.asStateFlow()
 
+    init {
+        if (_countries.value.isEmpty()) {
+            loadCountries()
+        }
+    }
+
+    fun loadCountries() {
         viewModelScope.launch {
+            if (_countries.value.isNotEmpty()) return@launch
             _isLoading.value = true
-            val result = repository.getCountries()
-            result.onSuccess {
-                _countries.value = it
+            val fetchResult = repository.getCountries()
+            _result.value = fetchResult
+            fetchResult.onSuccess {
+                if (it.isNotEmpty()) {
+                    _countries.value = it
+                }
                 _errorMessage.value = null
             }.onFailure {
                 _errorMessage.value = it.message
@@ -39,7 +51,6 @@ class CountryViewModel : ViewModel() {
         }
     }
 
-
     fun toggleModal() {
         _showModal.value = !_showModal.value
     }
@@ -47,8 +58,8 @@ class CountryViewModel : ViewModel() {
     fun addCountry(country: Country) {
         viewModelScope.launch {
             _isLoading.value = true
-            val result = repository.addCountry(country)
-            result.onSuccess {
+            val addResult = repository.addCountry(country)
+            addResult.onSuccess {
                 _showModal.value = false
                 loadCountries()
             }.onFailure {
